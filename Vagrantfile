@@ -11,8 +11,8 @@ Vagrant.configure("2") do |config|
     deploy.vm.network "private_network", ip: "192.168.56.0"
     deploy.vm.provider "virtualbox" do |v|
       v.customize ["modifyvm", :id, "--memory", 2048]
-      v.customize ["modifyvm", :id, "--name", "master"]
-      v.customize ["modifyvm", :id, "--cpus", "4"]
+      v.customize ["modifyvm", :id, "--name", "deploy"]
+      v.customize ["modifyvm", :id, "--cpus", "2"]
     end
     config.vm.provision "shell", inline: <<-SHELL
       sed -i 's/ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/g' /etc/ssh/sshd_config
