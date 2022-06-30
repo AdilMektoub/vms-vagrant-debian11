@@ -11,7 +11,8 @@ apt install -qq -y git sshpass net-tools wget gnupg2 curl vim >/dev/null
 echo "[2]: install docker & docker-composer & k8s"
 apt install -y docker.io
 
-systemctl enable docker && systemctl daemon-reload && systemctl restart docker
+systemctl daemon-reload
+systemctl restart docker
 
 echo "[3]: install k8s"
 swapoff -a
@@ -27,3 +28,4 @@ deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 apt update
 apt install -y kubelet kubeadm kubectl
+mkdir -p $HOME/.kube
