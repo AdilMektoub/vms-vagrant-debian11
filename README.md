@@ -1,151 +1,107 @@
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
+# Install Kubernetes Cluster using kubeadm
+Follow this documentation to set up a Kubernetes cluster on __Ubuntu 20.04 LTS__.
 
+This documentation guides you in setting up a cluster with one master node and one worker node.
 
+## Assumptions
+|Role|FQDN|IP|OS|RAM|CPU|
+|----|----|----|----|----|----|
+|Master|master.chapacan.com|192.168.56.10|Ubuntu 20.04|2G|2|
+|Worker|worker1.chapacan.com|192.168.56.11|Ubuntu 20.04|1G|1|
+|Worker|worker2.chapacan.com|192.168.56.12|Ubuntu 20.04|1G|1|
 
-<!-- VAGRANT DEBIAN11 -->
-<br />
-<p align="center">
+## On both master and worker ################################  IN COMMON.SH 
+##### Login as `root` user
+```
+sudo su -
+```
+Perform all the commands as root user unless otherwise specified
+##### Disable Firewall
+```
+ufw disable
+```
+##### Disable swap
+```
+swapoff -a; sed -i '/swap/d' /etc/fstab
+```
+##### Update sysctl settings for Kubernetes networking
+```
+cat >>/etc/sysctl.d/kubernetes.conf<<EOF
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+sysctl --system
+```
+##### Install docker engine
+```
+{
+  apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+  add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  apt update
+  apt install -y docker-ce=5:19.03.10~3-0~ubuntu-focal containerd.io
+}
+```
+### Kubernetes Setup
+##### Add Apt repository
+```
+{
+  curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+}
+```
+##### Install Kubernetes components
+```
+apt update && apt install -y kubeadm=1.18.5-00 kubelet=1.18.5-00 kubectl=1.18.5-00
+```
+##### In case you are using LXC containers for Kubernetes nodes
+Hack required to provision K8s v1.15+ in LXC containers
+```
+{
+  mknod /dev/kmsg c 1 11
+  echo '#!/bin/sh -e' >> /etc/rc.local
+  echo 'mknod /dev/kmsg c 1 11' >> /etc/rc.local
+  chmod +x /etc/rc.local
+}
+```
+## ################################  INTO COMMON.SH 
 
-  <h3 align="center">AUTOMATE INSTALL VM DEBIAN 11 FOR DEVELOPMENT</h3>
-
-  <p align="center">
-    DEBIAN THE BEST OS BECAUSE IS VERY LIGHT
-    <br />
-    <a href="https://github.com/AdilMektoub/vms-vagrant-debian11/"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/roshanlam/ReadMeTemplate/">View Demo</a>
-    ·
-    <a href="https://github.com/AdilMektoub/vms-vagrant-debian11/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/AdilMektoub/vms-vagrant-debian11/issues">Request Feature</a>
-    ·
-    <a href="https://github.com/AdilMektoub/vms-vagrant-debian11/pulls">Send a Pull Request</a>
-  </p>
-</p>
-
-<!-- ABOUT THE PROJECT -->
-## Install Vagrant
-
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
-
-There are many great README templates available on GitHub, however, I didn't find one that really suited my needs so I created this enhanced one. I want to create a README template so amazing that it'll be the last one you ever need.
-
-Here's why:
-* Your time should be focused on creating something amazing. A project that solves a problem and helps others
-* You shouldn't be doing the same tasks over and over like creating a README from scratch
-* You should element DRY principles to the rest of your life :smile:
-
-Of course, no one template will serve all projects since your needs may be different. So I'll be adding more in the near future. You may also suggest changes by forking this repo and creating a pull request or opening an issue.
-
-A list of commonly used resources that I find helpful are listed in the acknowledgements.
-
-### Built With
-This section should list any major frameworks that you built your project using. Leave any add-ons/plugins for the acknowledgements section. Here are a few examples.
-* [Bootstrap](https://getbootstrap.com)
-* [JQuery](https://jquery.com)
-* [Laravel](https://laravel.com)
-
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
-
-### Prerequisites
-
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-```sh
-npm install npm@latest -g
+## On master
+##### Initialize Kubernetes Cluster
+Update the below command with the ip address of master
+```
+kubeadm init --apiserver-advertise-address=192.168.56.10 --pod-network-cidr=192.168.0.0/16  --ignore-preflight-errors=all
+```
+##### Deploy Calico network
+```
+kubectl --kubeconfig=/etc/kubernetes/admin.conf create -f https://docs.projectcalico.org/v3.14/manifests/calico.yaml
 ```
 
-### Installation
-
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
-```sh
-git clone https://github.com/your_username_/Project-Name.git
+##### Cluster join command
 ```
-3. Install NPM packages
-```sh
-npm install
-```
-4. Enter your API in `config.js`
-```JS
-const API_KEY = 'ENTER YOUR API';
+kubeadm token create --print-join-command
 ```
 
+##### To be able to run kubectl commands as non-root user
+If you want to be able to run kubectl commands as non-root user, then as a non-root user perform these
+```
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
 
+## On worker
+##### Join the cluster
+Use the output from __kubeadm token create__ command in previous step from the master server and run here.
 
-<!-- USAGE EXAMPLES -->
-## Usage
+## Verifying the cluster (On master)
+##### Get Nodes status
+```
+kubectl get nodes
+```
+##### Get component status
+```
+kubectl get cs
+```
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-
-
-<!-- ROADMAP -->
-## 🚧 Roadmap
-
-See the [open issues](https://github.com/roshanlam/ReadMeTemplate/issues) for a list of proposed features (and known issues).
-
-
-
-<!-- CONTRIBUTING -->
-## 🤝 Contributing
-
-Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **extremely appreciated**.
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-
-
-<!-- LICENSE -->
-## 📝 License
-Describe your License for your project. 
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-
-
-<!-- CONTACT -->
-## 📫 Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com
-
-Project Link: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
-
-
-
-<!-- ACKNOWLEDGEMENTS -->
-## Acknowledgements
-* [Img Shields](https://shields.io)
-* [GitHub Pages](https://pages.github.com)
-* [Font Awesome](https://fontawesome.com)
-* blah blah blah....
-
-
-
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[forks-shield]: https://img.shields.io/github/forks/roshanlam/ReadMeTemplate?style=for-the-badge
-[forks-url]: https://github.com/roshanlam/ReadMeTemplate/network/members
-[stars-shield]: https://img.shields.io/github/stars/roshanlam/ReadMeTemplate?style=for-the-badge
-[stars-url]: https://github.com/roshanlam/ReadMeTemplate/stargazers
-[issues-shield]: https://img.shields.io/github/issues/roshanlam/ReadMeTemplate?style=for-the-badge
-[issues-url]: https://github.com/roshanlam/ReadMeTemplate/issues
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/roshan-lamichhane
+Bisouxx!!
