@@ -4,26 +4,24 @@
 
 IP=$(hostname -I | awk '{print $2}')
 
-echo "[1]: install utils"
-apt update -qq >/dev/null
-apt install -qq -y git sshpass net-tools wget gnupg2 curl vim >/dev/null
+echo "[1]: Disable swap & Firewall"
+ufw disable
+swapoff -a; sed -i '/swap/d' /etc/fstab
 
-echo "[2]: install docker & docker-composer & k8s"
-apt install -y docker.io
-
-systemctl enable docker && systemctl daemon-reload && systemctl restart docker
-
-echo "[3]: install k8s"
-swapoff -a
-cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+echo "[2]: Update sysctl settings for Kubernetes networking"
+cat >>/etc/sysctl.d/kubernetes.conf<<EOF
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
-sudo sysctl --system
-apt update && apt install -y apt-transport-https
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-apt update
-apt install -y kubelet kubeadm kubectl
+sysctl --system
+
+echo "[3]: Install docker engine"
+  apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+  add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  apt update
+  apt install -y docker-ce=5:19.03.10~3-0~ubuntu-focal containerd.io
+
+echo "[4]: Add Apt repository"
+  curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
