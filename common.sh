@@ -20,10 +20,14 @@ echo "[3]: Install docker engine"
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
   add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
   apt update
-  apt install -y docker-ce=5:19.03.10~3-0~ubuntu-focal containerd.io
+  apt install -y docker-ce=5:19.03.10~3-0~ubuntu-focal
 
 echo "[4]: Add Apt repository"
-  curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  apt update
+  #curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  #curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+  curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+  apt update
   echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
 
 echo "[5]: Install Kubernetes components"
